@@ -12,7 +12,7 @@ import pandas as pd
 # In[4]:
 
 
-df=pd.read_csv('/Users/xiaoming/Library/CloudStorage/OneDrive-AsiaPacificUniversity/Degree Y3S2/FYP/retail_store_inventory.csv')
+df=pd.read_csv('retail_store_inventory.csv')
 
 
 # ##### NORMAL  INFORMATION (ROW+COLUMN AMOUNTS AND ATTRIBUTES DATA TYPES)
