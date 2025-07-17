@@ -71,6 +71,9 @@ if 'df' in st.session_state:
 
     future_df = pd.DataFrame(future_forecasts)
 
+    # Filter the forecast data by selected stores
+    future_df_filtered = future_df[future_df['Store ID'].isin(selected_stores)]
+
     # Model input columns expected by the model
     model_input_cols = ['Inventory Level', 'Units Ordered', 'Demand Forecast', 'Price', 'Discount']
 
@@ -91,8 +94,8 @@ if 'df' in st.session_state:
 
     # Now predict only if the necessary columns exist
     if all(col in future_df.columns for col in model_input_cols):
-        future_df['Predicted Units Sold'] = model.predict(future_df[model_input_cols]).astype(int)
-        forecast_output = future_df[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
+        future_df_filtered['Predicted Units Sold'] = model.predict(future_df_filtered[model_input_cols]).astype(int)
+        forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
         st.dataframe(forecast_output)
     else:
         st.error("Missing necessary columns for prediction.")
