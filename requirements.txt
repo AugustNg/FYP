@@ -3,4 +3,3 @@ numpy
 matplotlib
 xgboost
 scikit-learn
-tensorflow
