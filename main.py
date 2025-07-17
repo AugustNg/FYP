@@ -15,10 +15,13 @@ model = load_model()
 # Streamlit App
 st.title("📈 Sales Forecast Dashboard")
 
-# File Upload
-uploaded_file = st.file_uploader("Upload CSV with sales data", type=['csv'])
+# Display the rest of the dashboard first (without the file upload widget initially)
+st.subheader("🔹 Sales")
+st.info("Please upload a CSV file to get started.")  # This message will guide users to upload a file
 
-# Placeholder for user to upload dataset (moved to bottom)
+# File upload section will be moved here, below the dashboard
+uploaded_file = st.file_uploader("Upload CSV with sales data", type=['csv'], key='file_uploader')
+
 if uploaded_file is not None:
     # Load and preprocess
     df = pd.read_csv(uploaded_file)
@@ -41,7 +44,6 @@ if uploaded_file is not None:
     mtd_sales = df[(df['Date'].dt.year == latest_year) & (df['Date'].dt.month == latest_month)]['sales_amount'].sum()
     today_sales = df[df['Date'].dt.date == latest_day]['sales_amount'].sum()
 
-    st.subheader("🔹 Sales")
     col1, col2, col3 = st.columns(3)
     col1.metric("📅 Year-to-Date", f"${ytd_sales:,.2f}")
     col2.metric("📆 Month-to-Date", f"${mtd_sales:,.2f}")
