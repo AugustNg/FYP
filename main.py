@@ -18,6 +18,7 @@ st.title("📈 Sales Forecast Dashboard")
 # File Upload
 uploaded_file = st.file_uploader("Upload CSV with sales data", type=['csv'])
 
+# Placeholder for user to upload dataset (moved to bottom)
 if uploaded_file is not None:
     # Load and preprocess
     df = pd.read_csv(uploaded_file)
@@ -26,6 +27,22 @@ if uploaded_file is not None:
     df['Units Sold'] = pd.to_numeric(df['Units Sold'], errors='coerce')
     df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
     df.dropna(subset=['Units Sold', 'Price'], inplace=True)
+
+    # 🔹 Sales (YTD, MTD, Today's Sales) KPIs (Updated to reflect dataset provided)
+    today = pd.to_datetime(datetime.date.today())
+    latest_year = df['Date'].dt.year.max()
+    latest_month = df['Date'].dt.month.max()
+    latest_day = df['Date'].dt.date.max()
+
+    ytd_sales = df[df['Date'].dt.year == latest_year]['sales_amount'].sum()
+    mtd_sales = df[(df['Date'].dt.year == latest_year) & (df['Date'].dt.month == latest_month)]['sales_amount'].sum()
+    today_sales = df[df['Date'].dt.date == latest_day]['sales_amount'].sum()
+
+    st.subheader("🔹 Sales")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("📅 Year-to-Date", f"${ytd_sales:,.2f}")
+    col2.metric("📆 Month-to-Date", f"${mtd_sales:,.2f}")
+    col3.metric("🕒 Today's Sales", f"${today_sales:,.2f}")
 
     # 🔹 Historical Sales Line Chart (Separate by Store ID)
     st.subheader("🔹 Historical Sales")
@@ -36,7 +53,7 @@ if uploaded_file is not None:
     store_ids = sales_over_time['Store ID'].unique()
     selected_stores = st.multiselect("Select Stores to view", options=store_ids, default=store_ids)
 
-    # Plot sales for the selected stores
+    # Filter data for selected stores
     filtered_sales = sales_over_time[sales_over_time['Store ID'].isin(selected_stores)]
     store_sales = filtered_sales.pivot(index='Date', columns='Store ID', values='sales_amount')
     st.line_chart(store_sales)
@@ -86,19 +103,7 @@ if uploaded_file is not None:
     else:
         st.error("Missing necessary columns for prediction.")
 
-    # 🔹 Sales (YTD, MTD, Today's Sales) KPIs
-    today = pd.to_datetime(datetime.date.today())
-    ytd_sales = df[df['Date'].dt.year == today.year]['sales_amount'].sum()
-    mtd_sales = df[(df['Date'].dt.year == today.year) & (df['Date'].dt.month == today.month)]['sales_amount'].sum()
-    today_sales = df[df['Date'].dt.date == today.date()]['sales_amount'].sum()
-
-    st.subheader("🔹 Sales")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("📅 Year-to-Date", f"${ytd_sales:,.2f}")
-    col2.metric("📆 Month-to-Date", f"${mtd_sales:,.2f}")
-    col3.metric("🕒 Today's Sales", f"${today_sales:,.2f}")
-
-    # Display the raw data at the bottom
+    # Display the raw data at the bottom (file upload section)
     st.subheader("Raw Data")
     st.dataframe(df.head())
 
