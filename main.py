@@ -32,8 +32,13 @@ if uploaded_file is not None:
     df['sales_amount'] = df['Units Sold'] * df['Price']
     sales_over_time = df.groupby(['Store ID', 'Date'])['sales_amount'].sum().reset_index()
 
-    # Plot each store's sales in a separate line chart
-    store_sales = sales_over_time.pivot(index='Date', columns='Store ID', values='sales_amount')
+    # Create a list of store IDs for user to select
+    store_ids = sales_over_time['Store ID'].unique()
+    selected_stores = st.multiselect("Select Stores to view", options=store_ids, default=store_ids)
+
+    # Plot sales for the selected stores
+    filtered_sales = sales_over_time[sales_over_time['Store ID'].isin(selected_stores)]
+    store_sales = filtered_sales.pivot(index='Date', columns='Store ID', values='sales_amount')
     st.line_chart(store_sales)
 
     # 🔮 7-Day Demand Forecast per SKU (Separate by Store ID)
@@ -75,7 +80,7 @@ if uploaded_file is not None:
 
     # Now predict only if the necessary columns exist
     if all(col in future_df.columns for col in model_input_cols):
-        future_df['Predicted Units Sold'] = model.predict(future_df[model_input_cols])
+        future_df['Predicted Units Sold'] = model.predict(future_df[model_input_cols]).astype(int)
         forecast_output = future_df[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
         st.dataframe(forecast_output)
     else:
