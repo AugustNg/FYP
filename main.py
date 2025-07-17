@@ -15,30 +15,18 @@ model = load_model()
 # Streamlit App
 st.title("📈 Sales Forecast Dashboard")
 
-# Display the rest of the dashboard first (without the file upload widget initially)
-st.subheader("🔹 Sales")
-st.info("Please upload a CSV file to get started.")  # This message will guide users to upload a file
-
-# File upload section will be moved here, below the dashboard
-uploaded_file = st.file_uploader("Upload CSV with sales data", type=['csv'], key='file_uploader')
-
-if uploaded_file is not None:
-    # Load and preprocess
-    df = pd.read_csv(uploaded_file)
-
-    df['Date'] = pd.to_datetime(df['Date'])
-    df['Units Sold'] = pd.to_numeric(df['Units Sold'], errors='coerce')
-    df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
-    df.dropna(subset=['Units Sold', 'Price'], inplace=True)
-
-    # Create 'sales_amount' column
-    df['sales_amount'] = df['Units Sold'] * df['Price']
+# Display dashboard info if file is uploaded
+if 'df' in st.session_state:
+    # Retrieve data from session state if it's already processed
+    df = st.session_state.df
 
     # 🔹 Sales (YTD, MTD, Today's Sales) KPIs (Updated to reflect dataset provided)
     today = pd.to_datetime(datetime.date.today())
     latest_year = df['Date'].dt.year.max()
     latest_month = df['Date'].dt.month.max()
     latest_day = df['Date'].dt.date.max()
+
+    df['sales_amount'] = df['Units Sold'] * df['Price']  # Ensure 'sales_amount' exists
 
     ytd_sales = df[df['Date'].dt.year == latest_year]['sales_amount'].sum()
     mtd_sales = df[(df['Date'].dt.year == latest_year) & (df['Date'].dt.month == latest_month)]['sales_amount'].sum()
@@ -112,4 +100,22 @@ if uploaded_file is not None:
     st.dataframe(df.head())
 
 else:
-    st.info("Please upload a CSV file to get started.")
+    # File upload section moved to the bottom
+    uploaded_file = st.file_uploader("Upload CSV with sales data", type=['csv'], key='file_uploader')
+
+    if uploaded_file is not None:
+        # Load and preprocess
+        df = pd.read_csv(uploaded_file)
+
+        df['Date'] = pd.to_datetime(df['Date'])
+        df['Units Sold'] = pd.to_numeric(df['Units Sold'], errors='coerce')
+        df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
+        df.dropna(subset=['Units Sold', 'Price'], inplace=True)
+
+        # Save the dataframe to session state for later use
+        st.session_state.df = df
+
+        # Notify user that the file has been uploaded successfully
+        st.success("File uploaded successfully! Now, the dashboard is updated with your data.")
+    else:
+        st.info("Please upload a CSV file to get started.")
