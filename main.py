@@ -54,10 +54,32 @@ if uploaded_file is not None:
             future_forecasts.append(future_row)
 
     future_df = pd.DataFrame(future_forecasts)
-    future_df['Predicted Units Sold'] = model.predict(future_df[model_input_cols])
 
-    forecast_output = future_df[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
-    st.dataframe(forecast_output)
+    # Model input columns expected by the model
+    model_input_cols = ['Inventory Level', 'Units Ordered', 'Demand Forecast', 'Price', 'Discount']
+
+    # Check if all required columns are in the future_df
+    missing_cols = [col for col in model_input_cols if col not in future_df.columns]
+
+    # If there are missing columns, handle them
+    if missing_cols:
+        st.warning(f"The following required columns are missing in the data: {missing_cols}")
+        # Optionally, you can fill missing columns with default values (e.g., 0 or mean)
+        for col in missing_cols:
+            if col == 'Inventory Level' or col == 'Units Ordered':  # Example: fill with 0 if necessary
+                future_df[col] = 0
+            elif col == 'Price' or col == 'Discount':  # Example: fill with mean or any default value
+                future_df[col] = future_df['Price'].mean() if 'Price' in future_df.columns else 0
+            elif col == 'Demand Forecast':  # Example: fill with a constant or median
+                future_df[col] = future_df['Demand Forecast'].mean() if 'Demand Forecast' in future_df.columns else 0
+
+    # Now predict only if the necessary columns exist
+    if all(col in future_df.columns for col in model_input_cols):
+        future_df['Predicted Units Sold'] = model.predict(future_df[model_input_cols])
+        forecast_output = future_df[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
+        st.dataframe(forecast_output)
+    else:
+        st.error("Missing necessary columns for prediction.")
 
     # 🔹 Sales (YTD, MTD, Today's Sales) KPIs
     today = pd.to_datetime(datetime.date.today())
