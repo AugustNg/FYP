@@ -20,23 +20,6 @@ if 'df' in st.session_state:
     # Retrieve data from session state if it's already processed
     df = st.session_state.df
 
-    # 🔹 Sales (YTD, MTD, Today's Sales) KPIs (Updated to reflect dataset provided)
-    today = pd.to_datetime(datetime.date.today())
-    latest_year = df['Date'].dt.year.max()
-    latest_month = df['Date'].dt.month.max()
-    latest_day = df['Date'].dt.date.max()
-
-    df['sales_amount'] = df['Units Sold'] * df['Price']  # Ensure 'sales_amount' exists
-
-    ytd_sales = df[df['Date'].dt.year == latest_year]['sales_amount'].sum()
-    mtd_sales = df[(df['Date'].dt.year == latest_year) & (df['Date'].dt.month == latest_month)]['sales_amount'].sum()
-    today_sales = df[df['Date'].dt.date == latest_day]['sales_amount'].sum()
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("📅 Year-to-Date", f"${ytd_sales:,.2f}")
-    col2.metric("📆 Month-to-Date", f"${mtd_sales:,.2f}")
-    col3.metric("🕒 Today's Sales", f"${today_sales:,.2f}")
-
     # 🔹 Historical Sales Line Chart (Separate by Store ID)
     st.subheader("🔹 Historical Sales")
     sales_over_time = df.groupby(['Store ID', 'Date'])['sales_amount'].sum().reset_index()
@@ -49,6 +32,25 @@ if 'df' in st.session_state:
     filtered_sales = sales_over_time[sales_over_time['Store ID'].isin(selected_stores)]
     store_sales = filtered_sales.pivot(index='Date', columns='Store ID', values='sales_amount')
     st.line_chart(store_sales)
+
+    # 🔹 Sales (YTD, MTD, Today's Sales) KPIs (Updated to reflect dataset provided)
+    today = pd.to_datetime(datetime.date.today())
+    latest_year = df['Date'].dt.year.max()
+    latest_month = df['Date'].dt.month.max()
+    latest_day = df['Date'].dt.date.max()
+
+    # Filter sales data for selected stores
+    filtered_df = df[df['Store ID'].isin(selected_stores)]
+
+    # Recalculate the KPIs for selected stores
+    ytd_sales = filtered_df[filtered_df['Date'].dt.year == latest_year]['sales_amount'].sum()
+    mtd_sales = filtered_df[(filtered_df['Date'].dt.year == latest_year) & (filtered_df['Date'].dt.month == latest_month)]['sales_amount'].sum()
+    today_sales = filtered_df[filtered_df['Date'].dt.date == latest_day]['sales_amount'].sum()
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("📅 Year-to-Date", f"${ytd_sales:,.2f}")
+    col2.metric("📆 Month-to-Date", f"${mtd_sales:,.2f}")
+    col3.metric("🕒 Today's Sales", f"${today_sales:,.2f}")
 
     # 🔮 7-Day Demand Forecast per SKU (Separate by Store ID)
     st.subheader("🔮 7-Day Demand Forecast Per SKU")
