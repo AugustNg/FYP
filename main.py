@@ -27,33 +27,23 @@ if uploaded_file is not None:
     df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
     df.dropna(subset=['Units Sold', 'Price'], inplace=True)
 
-    st.subheader("Raw Data")
-    st.dataframe(df.head())
-
-    # 🔹 Historical Sales Line Chart
+    # 🔹 Historical Sales Line Chart (Separate by Store ID)
     st.subheader("🔹 Historical Sales")
     df['sales_amount'] = df['Units Sold'] * df['Price']
-    sales_over_time = df.groupby('Date')['sales_amount'].sum().reset_index()
-    st.line_chart(sales_over_time.set_index('Date'))
+    sales_over_time = df.groupby(['Store ID', 'Date'])['sales_amount'].sum().reset_index()
 
-    # 🔹 Predictions per SKU
-    st.subheader("🔹 Predicted Sales per SKU")
+    # Plot each store's sales in a separate line chart
+    store_sales = sales_over_time.pivot(index='Date', columns='Store ID', values='sales_amount')
+    st.line_chart(store_sales)
 
-    # Define input columns used by the model
-    model_input_cols = ['Inventory Level', 'Units Ordered', 'Demand Forecast', 'Price', 'Discount']
-    pred_df = df.dropna(subset=model_input_cols).copy()
-    pred_df['Predicted Units Sold'] = model.predict(pred_df[model_input_cols])
-
-    st.dataframe(pred_df[['Product ID', 'Predicted Units Sold']].groupby('Product ID').sum().reset_index())
-
-    # 🔮 7-Day Demand Forecast per SKU
+    # 🔮 7-Day Demand Forecast per SKU (Separate by Store ID)
     st.subheader("🔮 7-Day Demand Forecast Per SKU")
 
     future_days = 7
     latest_date = df['Date'].max()
 
-    # Get latest data per SKU
-    latest_rows = df.sort_values('Date').groupby('Product ID').tail(1)
+    # Get latest data per SKU (for each store)
+    latest_rows = df.sort_values('Date').groupby(['Product ID', 'Store ID']).tail(1)
 
     future_forecasts = []
     for _, row in latest_rows.iterrows():
@@ -66,20 +56,24 @@ if uploaded_file is not None:
     future_df = pd.DataFrame(future_forecasts)
     future_df['Predicted Units Sold'] = model.predict(future_df[model_input_cols])
 
-    forecast_output = future_df[['Product ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Date'])
+    forecast_output = future_df[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
     st.dataframe(forecast_output)
 
-    # 🔹 KPIs: YTD / MTD / Today
+    # 🔹 Sales (YTD, MTD, Today's Sales) KPIs
     today = pd.to_datetime(datetime.date.today())
     ytd_sales = df[df['Date'].dt.year == today.year]['sales_amount'].sum()
     mtd_sales = df[(df['Date'].dt.year == today.year) & (df['Date'].dt.month == today.month)]['sales_amount'].sum()
     today_sales = df[df['Date'].dt.date == today.date()]['sales_amount'].sum()
 
-    st.subheader("🔹 Sales KPIs")
+    st.subheader("🔹 Sales")
     col1, col2, col3 = st.columns(3)
     col1.metric("📅 Year-to-Date", f"${ytd_sales:,.2f}")
     col2.metric("📆 Month-to-Date", f"${mtd_sales:,.2f}")
     col3.metric("🕒 Today's Sales", f"${today_sales:,.2f}")
+
+    # Display the raw data at the bottom
+    st.subheader("Raw Data")
+    st.dataframe(df.head())
 
 else:
     st.info("Please upload a CSV file to get started.")
