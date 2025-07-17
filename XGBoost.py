@@ -1,270 +1,127 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# # Data Undetstanding
-
-# In[3]:
-
-
 import pandas as pd
-
-
-# In[4]:
-
-
-df=pd.read_csv('retail_store_inventory.csv')
-
-
-# ##### NORMAL  INFORMATION (ROW+COLUMN AMOUNTS AND ATTRIBUTES DATA TYPES)
-
-# In[5]:
-
-
-print("ROW, COLUMNS: \n", df.shape)
-print("\nATTRIBUTES DATA TYPES: \n", df.dtypes)
-
-
-# ##### NORMAL DATA INFORMATION (NULL AND DUPLICATES)
-
-# In[6]:
-
-
-print("\nMISSING DATA: \n",df.isnull().sum())
-print("\nDUPLICATES DATA: ",df.duplicated().sum())
-
-
-# ##### TOTAL UNIQUE VALUE FOR CATEGORY COLUMNS
-
-# In[7]:
-
-
-print("UNIQUE VALUE:")
-for col in ['Store ID', 'Product ID', 'Category', 'Region', 'Weather Condition', 'Seasonality']:
-    print(f"{col}: {df[col].nunique()} unique values")
-
-
-# ##### RANGE OF NUMERIC ATTRIBUTES
-
-# In[8]:
-
-
-num_cols = ['Inventory Level', 'Units Sold', 'Units Ordered',
-            'Demand Forecast', 'Price', 'Discount', 'Competitor Pricing',]
-print("\nNumerical Columns Stats:")
-print(df[num_cols].describe())
-
-
-# In[9]:
-
-
-print(df.head())
-
-
-# In[10]:
-
-
-df["Date"] = pd.to_datetime(df["Date"])
-print(df.dtypes)
-
-
-# In[11]:
-
-
-import matplotlib.pyplot as plt
-
-# Plot histogram for 'Units Sold'
-df['Units Sold'].hist(bins=30, edgecolor='black')
-plt.title('Histogram of Units Sold')
-plt.xlabel('Units Sold')
-plt.ylabel('Frequency')
-plt.show()
-
-
-# For a particular column
-skewness = df['Units Sold'].skew()
-print(f"Skewness: {skewness}")
-
-
-# #
-
-# #
-
-# #
-
-# # Model Building
-
-# ##### Libraries needed for model building
-
-# In[12]:
-
-
 import numpy as np
-import xgboost as xgb
-from sklearn.model_selection import train_test_split, TimeSeriesSplit
+import streamlit as st
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+import seaborn as sns
+
+# Load the dataset
+def load_data():
+    df = pd.read_csv('retail_store_inventory.csv')
+    df['Date'] = pd.to_datetime(df['Date'])
+    return df
+
+# Preprocess the data
+def preprocess_data(df):
+    # Convert boolean columns to integers (1 for True, 0 for False)
+    boolean_columns = ['Holiday/Promotion']
+    df[boolean_columns] = df[boolean_columns].astype(int)
+
+    # Handle categorical columns (use One-Hot Encoding)
+    df = pd.get_dummies(df, columns=['Store ID', 'Product ID', 'Category', 'Region', 'Weather Condition', 'Seasonality'], drop_first=True)
+
+    # Drop unnecessary columns
+    df = df.drop(columns=['Date', 'Units Ordered', 'Demand Forecast'])
+
+    # Define Features (X) and Target (y)
+    X = df.drop(columns=['Units Sold'])
+    y = df['Units Sold']
+
+    # Scale numerical columns
+    scaler = MinMaxScaler()
+    numerical_columns = ['Inventory Level', 'Price', 'Discount', 'Competitor Pricing']
+    df[numerical_columns] = scaler.fit_transform(df[numerical_columns])
+
+    # Create Sliding Window for Time Series (window_size = 14)
+    window_size = 14
+    X_seq, y_seq = [], []
+    for i in range(window_size, len(X)):
+        X_seq.append(X.iloc[i - window_size:i].values)
+        y_seq.append(y.iloc[i])
+
+    X_seq = np.array(X_seq)
+    y_seq = np.array(y_seq)
+
+    return X_seq, y_seq, scaler, X, y
+
+# Build LSTM model
+def build_lstm_model(input_shape):
+    model = Sequential()
+    model.add(LSTM(units=128, return_sequences=True, input_shape=input_shape))
+    model.add(Dropout(0.2))
+    model.add(LSTM(units=128))
+    model.add(Dropout(0.2))
+    model.add(Dense(1))  # Output layer for predicting 'Units Sold' for the next day
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    return model
+
+# Create the line chart for past sales and predicted demand
+def plot_past_sales_and_predictions(actual_sales, predicted_sales):
+    plt.figure(figsize=(12, 6))
+    plt.plot(actual_sales, label='Actual Sales')
+    plt.plot(predicted_sales, label='Predicted Sales')
+    plt.title('Past Sales and Predicted Demand for each SKU')
+    plt.xlabel('Index')
+    plt.ylabel('Units Sold')
+    plt.legend()
+    st.pyplot()
+
+# Create the demand prediction for the next 7 days
+def plot_next_7_days_demand(predictions_7_days):
+    plt.figure(figsize=(10, 6))
+    plt.bar(range(1, 8), predictions_7_days)
+    plt.title('Predicted Demand for Next 7 Days')
+    plt.xlabel('Days')
+    plt.ylabel('Units Sold')
+    st.pyplot()
+
+# Main function to display Streamlit UI
+def main():
+    st.title("Retail Store Demand Prediction Dashboard")
+
+    # Load and preprocess data
+    df = load_data()
+    X_seq, y_seq, scaler, X, y = preprocess_data(df)
+
+    # Split the data into training and test sets
+    X_train, X_test, y_train, y_test = train_test_split(X_seq, y_seq, test_size=0.2, shuffle=False)
+    X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], X_train.shape[2]))
+    X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], X_test.shape[2]))
+
+    # Build and train the LSTM model
+    model = build_lstm_model((X_train.shape[1], X_train.shape[2]))
+    model.fit(X_train, y_train, epochs=100, batch_size=32, validation_data=(X_test, y_test))
+
+    # Make predictions on the test data
+    y_pred = model.predict(X_test)
+    y_pred_original = scaler.inverse_transform(y_pred.reshape(-1, 1))
+    y_test_original = scaler.inverse_transform(y_test.reshape(-1, 1))
+
+    # Flatten predictions and actual values for easier comparison
+    y_pred_original = y_pred_original.flatten()
+    y_test_original = y_test_original.flatten()
+
+    # Calculate RMSE and MAE
+    rmse = np.sqrt(mean_squared_error(y_test_original, y_pred_original))
+    mae = mean_absolute_error(y_test_original, y_pred_original)
 
+    st.write(f"Root Mean Squared Error (RMSE): {rmse:.2f}")
+    st.write(f"Mean Absolute Error (MAE): {mae:.2f}")
 
-# ##### Lagging
+    # Plot Actual vs Predicted Units Sold
+    st.header("Actual vs Predicted Units Sold")
+    plot_past_sales_and_predictions(y_test_original, y_pred_original)
 
-# In[13]:
+    # Predict demand for next 7 days (example using the last day from the test set)
+    next_7_days_demand = np.array([y_pred_original[-1]] * 7)  # Simplified, replace with actual LSTM prediction logic
+    st.header("Predicted Demand for Next 7 Days")
+    plot_next_7_days_demand(next_7_days_demand)
 
+    # Additional dashboard features can be added here (e.g., store-wise breakdown, SKU details, etc.)
 
-df['lag_1'] = df['Units Sold'].shift(1)  # Previous day's sales
-df['lag_7'] = df['Units Sold'].shift(7)  # Sales from 7 days ago
-
-
-# ##### Rolling
-
-# In[14]:
-
-
-df['rolling_mean_7'] = df['Units Sold'].rolling(window=7).mean()  # 7-day rolling mean
-
-
-# ##### Date Extract
-
-# In[15]:
-
-
-df['Day'] = df['Date'].dt.day
-df['Month'] = df['Date'].dt.month
-df['DayOfWeek'] = df['Date'].dt.dayofweek
-df['IsWeekend'] = df['DayOfWeek'].isin([5, 6]).astype(int)  # Weekend flag
-
-
-# In[16]:
-
-
-# Assuming 'Category' is an ordinal feature
-label_encoder = LabelEncoder()
-df['Category'] = label_encoder.fit_transform(df['Category'])
-
-
-# In[17]:
-
-
-# One-Hot Encoding for categorical columns
-df = pd.get_dummies(df, columns=['Store ID', 'Product ID', 'Region', 'Weather Condition','Category','Seasonality'])
-
-
-# In[18]:
-
-
-# Add a new column for price difference
-df['Price_Difference'] = df['Price'] - df['Competitor Pricing']
-
-
-# In[19]:
-
-
-# Define the features and target
-X = df.drop(columns=['Units Sold','Date','Units Ordered','Demand Forecast']) 
-y = df['Units Sold']
-
-
-# In[20]:
-
-
-# Train-Test Split (80% training, 20% testing)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
-
-
-# In[21]:
-
-
-df.dtypes
-
-
-# In[22]:
-
-
-# Initialize the model
-model = xgb.XGBRegressor(
-    objective='reg:squarederror',  # Regression task
-    eval_metric='rmse',            # RMSE evaluation metric
-    n_estimators=100,              # Number of boosting rounds
-    max_depth=6,                   # Depth of the trees
-    learning_rate=0.1,             # Learning rate
-    random_state=42                # For reproducibility
-)
-
-# Train the model
-model.fit(X_train, y_train)
-
-# Predict on test set
-y_pred = model.predict(X_test)
-
-# Evaluate the model
-rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-mae = mean_absolute_error(y_test, y_pred)
-
-print(f"RMSE: {rmse}")
-print(f"MAE: {mae}")
-
-
-# In[23]:
-
-
-threshold = 200
-
-y_test_class = (y_test > threshold).astype(int)
-y_pred_class = (y_pred > threshold).astype(int)
-
-
-# In[24]:
-
-
-from sklearn.metrics import confusion_matrix, classification_report, auc
-import matplotlib.pyplot as plt
-
-threshold = 200
-
-y_test_class = (y_test > threshold).astype(int)
-y_pred_class = (y_pred > threshold).astype(int)
-
-# Confusion Matrix
-cm = confusion_matrix(y_test_class, y_pred_class)
-print("Confusion Matrix:")
-print(cm)
-
-# Classification Report
-print("\nClassification Report:")
-print(classification_report(y_test_class, y_pred_class))
-
-
-# In[25]:
-
-
-import matplotlib.pyplot as plt
-
-plt.figure(figsize=(10,5))
-plt.plot(y_test.values, label="Actual")
-plt.plot(y_pred, label="Predicted")
-plt.legend()
-plt.title("Actual vs Predicted Units Sold")
-plt.show()
-
-
-# In[26]:
-
-
-errors = y_test.values - y_pred
-plt.hist(errors, bins=50)
-plt.title("Prediction Errors")
-plt.show()
-
-
-# In[27]:
-
-
-import xgboost as xgb
-xgb.plot_importance(model)
-
-
-# In[31]:
-
-
-model.save_model("xgb_model.json")  # or use .bin
-
+if __name__ == "__main__":
+    main()
