@@ -20,6 +20,9 @@ if 'df' in st.session_state:
     # Retrieve data from session state if it's already processed
     df = st.session_state.df
 
+    # Ensure the 'sales_amount' column is created before any grouping or operations
+    df['sales_amount'] = df['Units Sold'] * df['Price']
+
     # 🔹 Historical Sales Line Chart (Separate by Store ID)
     st.subheader("🔹 Historical Sales")
     sales_over_time = df.groupby(['Store ID', 'Date'])['sales_amount'].sum().reset_index()
