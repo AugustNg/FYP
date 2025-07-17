@@ -28,6 +28,9 @@ if uploaded_file is not None:
     df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
     df.dropna(subset=['Units Sold', 'Price'], inplace=True)
 
+    # Create 'sales_amount' column
+    df['sales_amount'] = df['Units Sold'] * df['Price']
+
     # 🔹 Sales (YTD, MTD, Today's Sales) KPIs (Updated to reflect dataset provided)
     today = pd.to_datetime(datetime.date.today())
     latest_year = df['Date'].dt.year.max()
@@ -46,7 +49,6 @@ if uploaded_file is not None:
 
     # 🔹 Historical Sales Line Chart (Separate by Store ID)
     st.subheader("🔹 Historical Sales")
-    df['sales_amount'] = df['Units Sold'] * df['Price']
     sales_over_time = df.groupby(['Store ID', 'Date'])['sales_amount'].sum().reset_index()
 
     # Create a list of store IDs for user to select
