@@ -106,8 +106,9 @@ if 'df' in st.session_state:
     # Now predict only if the necessary columns exist
     if all(col in future_df.columns for col in model_input_cols):
         if model is not None:
-            # Ensure necessary columns are present
-            future_df_filtered['Predicted Units Sold'] = model.predict(future_df_filtered[model_input_cols]).astype(int)
+            # Ensure necessary columns are present and transform using preprocessor
+            future_df_transformed = model.named_steps['preprocessor'].transform(future_df_filtered[model_input_cols])
+            future_df_filtered['Predicted Units Sold'] = model.predict(future_df_transformed).astype(int)
             forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
             st.dataframe(forecast_output)
         else:
