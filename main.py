@@ -3,18 +3,21 @@ import pandas as pd
 import numpy as np
 import pickle
 import datetime
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 
 # Load model
 @st.cache_resource
 def load_model():
     try:
-        with open('best_xgb_model.pkl', 'wb') as f:
+        # Load model from pickle file
+        with open('best_xgb_model.pkl', 'rb') as f:
             model = pickle.load(f)
         return model
     except Exception as e:
         st.error(f"Error loading the model: {str(e)}")
         return None
-
 
 model = load_model()
 
@@ -89,7 +92,6 @@ if 'df' in st.session_state:
     # Check if all required columns are in the future_df
     missing_cols = [col for col in model_input_cols if col not in future_df.columns]
 
-    # If there are missing columns, handle them
     if missing_cols:
         st.warning(f"The following required columns are missing in the data: {missing_cols}")
         # Optionally, you can fill missing columns with default values (e.g., 0 or mean)
@@ -103,9 +105,13 @@ if 'df' in st.session_state:
 
     # Now predict only if the necessary columns exist
     if all(col in future_df.columns for col in model_input_cols):
-        future_df_filtered['Predicted Units Sold'] = model.predict(future_df_filtered[model_input_cols]).astype(int)
-        forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
-        st.dataframe(forecast_output)
+        if model is not None:
+            # Ensure necessary columns are present
+            future_df_filtered['Predicted Units Sold'] = model.predict(future_df_filtered[model_input_cols]).astype(int)
+            forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
+            st.dataframe(forecast_output)
+        else:
+            st.error("Model could not be loaded. Please check the model file.")
     else:
         st.error("Missing necessary columns for prediction.")
 
