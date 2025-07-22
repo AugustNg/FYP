@@ -103,11 +103,13 @@ if 'df' in st.session_state:
             elif col == 'Demand Forecast':  # Example: fill with a constant or median
                 future_df[col] = future_df['Demand Forecast'].mean() if 'Demand Forecast' in future_df.columns else 0
 
-    # Now predict only if the necessary columns exist
+    # Now ensure the data is transformed using the preprocessor before prediction
     if all(col in future_df.columns for col in model_input_cols):
         if model is not None:
-            # Ensure necessary columns are present and transform using preprocessor
+            # Transform using preprocessor
             future_df_transformed = model.named_steps['preprocessor'].transform(future_df_filtered[model_input_cols])
+            
+            # Predict using the model
             future_df_filtered['Predicted Units Sold'] = model.predict(future_df_transformed).astype(int)
             forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
             st.dataframe(forecast_output)
