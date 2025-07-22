@@ -90,26 +90,31 @@ if 'df' in st.session_state:
     model_input_cols = ['Inventory Level', 'Units Ordered', 'Demand Forecast', 'Price', 'Discount']
 
     # Check if all required columns are in the future_df
-    missing_cols = [col for col in model_input_cols if col not in future_df.columns]
+    missing_cols = [col for col in model_input_cols if col not in future_df_filtered.columns]
 
     if missing_cols:
         st.warning(f"The following required columns are missing in the data: {missing_cols}")
         # Optionally, you can fill missing columns with default values (e.g., 0 or mean)
         for col in missing_cols:
             if col == 'Inventory Level' or col == 'Units Ordered':  # Example: fill with 0 if necessary
-                future_df[col] = 0
+                future_df_filtered[col] = 0
             elif col == 'Price' or col == 'Discount':  # Example: fill with mean or any default value
-                future_df[col] = future_df['Price'].mean() if 'Price' in future_df.columns else 0
+                future_df_filtered[col] = future_df_filtered['Price'].mean() if 'Price' in future_df_filtered.columns else 0
             elif col == 'Demand Forecast':  # Example: fill with a constant or median
-                future_df[col] = future_df['Demand Forecast'].mean() if 'Demand Forecast' in future_df.columns else 0
+                future_df_filtered[col] = future_df_filtered['Demand Forecast'].mean() if 'Demand Forecast' in future_df_filtered.columns else 0
 
     # Now ensure the data is transformed using the preprocessor before prediction
-    if all(col in future_df.columns for col in model_input_cols):
+    if all(col in future_df_filtered.columns for col in model_input_cols):
         if model is not None:
-            # Transform using preprocessor
+            # Check and fill any missing columns in the DataFrame before transformation
+            missing_cols = [col for col in model_input_cols if col not in future_df_filtered.columns]
+            for col in missing_cols:
+                future_df_filtered[col] = 0  # Fill missing columns with 0 (or appropriate values)
+
+            # Apply the same transformations (one-hot encoding, scaling, etc.) using the preprocessor in the model pipeline
             future_df_transformed = model.named_steps['preprocessor'].transform(future_df_filtered[model_input_cols])
             
-            # Predict using the model
+            # Make predictions using the transformed data
             future_df_filtered['Predicted Units Sold'] = model.predict(future_df_transformed).astype(int)
             forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
             st.dataframe(forecast_output)
