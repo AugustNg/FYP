@@ -7,7 +7,7 @@ import datetime
 # Load model
 @st.cache_resource
 def load_model():
-    with open('best_lstm_model.pkl', 'rb') as f:
+    with open('best_xgb_model.pkl', 'rb') as f:
         return pickle.load(f)
 
 model = load_model()
