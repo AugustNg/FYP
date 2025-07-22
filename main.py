@@ -7,8 +7,14 @@ import datetime
 # Load model
 @st.cache_resource
 def load_model():
-    with open('best_xgb_model.pkl', 'wb') as f:
-        return pickle.load(f)
+    try:
+        with open('best_xgb_model.pkl', 'wb') as f:
+            model = pickle.load(f)
+        return model
+    except Exception as e:
+        st.error(f"Error loading the model: {str(e)}")
+        return None
+
 
 model = load_model()
 
