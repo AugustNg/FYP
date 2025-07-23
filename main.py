@@ -4,19 +4,20 @@ import numpy as np
 import joblib
 import datetime
 
-# Load model
+# Load the model and preprocessing objects
 @st.cache_resource
 def load_model():
     try:
         # Load model from pickle file
-        with open('best_xgb_model.pkl', 'rb') as f:
-            model = joblib.load(f)
-        return model
+        rf_model = joblib.load('best_rf_model.pkl')
+        scaler = joblib.load('scaler.pkl')
+        label_encoders = joblib.load('label_encoders.pkl')
+        return rf_model, scaler, label_encoders
     except Exception as e:
         st.error(f"Error loading the model: {str(e)}")
-        return None
+        return None, None, None
 
-model = load_model()
+rf_model, scaler, label_encoders = load_model()
 
 # Streamlit App
 st.title("📈 Sales Forecast Dashboard")
@@ -34,47 +35,6 @@ if 'df' in st.session_state:
     df['Day'] = df['Date'].dt.day
     df['Month'] = df['Date'].dt.month
     df['Weekday'] = df['Date'].dt.weekday
-
-    # 🔹 Historical Sales Line Chart (Separate by Store ID)
-    st.subheader("🔹 Historical Sales")
-    sales_over_time = df.groupby(['Store ID', 'Date'])['sales_amount'].sum().reset_index()
-
-    # Create a list of store IDs for user to select
-    store_ids = sales_over_time['Store ID'].unique()
-
-    # Ensure `selected_stores` is stored in session_state, initialize if not available
-    if 'selected_stores' not in st.session_state:
-        st.session_state.selected_stores = store_ids  # Default to all stores
-
-    # Create a multiselect widget to select stores
-    selected_stores = st.multiselect("Select Stores to view", options=store_ids, default=st.session_state.selected_stores)
-
-    # Store the selected stores in session_state for later use
-    st.session_state.selected_stores = selected_stores
-
-    # Filter data for selected stores
-    filtered_sales = sales_over_time[sales_over_time['Store ID'].isin(selected_stores)]
-    store_sales = filtered_sales.pivot(index='Date', columns='Store ID', values='sales_amount')
-    st.line_chart(store_sales)
-
-    # 🔹 Sales (YTD, MTD, Today's Sales) KPIs (Updated to reflect dataset provided)
-    today = pd.to_datetime(datetime.date.today())
-    latest_year = df['Date'].dt.year.max()
-    latest_month = df['Date'].dt.month.max()
-    latest_day = df['Date'].dt.date.max()
-
-    # Filter sales data for selected stores
-    filtered_df = df[df['Store ID'].isin(selected_stores)]
-
-    # Recalculate the KPIs for selected stores
-    ytd_sales = filtered_df[filtered_df['Date'].dt.year == latest_year]['sales_amount'].sum()
-    mtd_sales = filtered_df[(filtered_df['Date'].dt.year == latest_year) & (filtered_df['Date'].dt.month == latest_month)]['sales_amount'].sum()
-    today_sales = filtered_df[filtered_df['Date'].dt.date == latest_day]['sales_amount'].sum()
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("📅 Year-to-Date", f"${ytd_sales:,.2f}")
-    col2.metric("📆 Month-to-Date", f"${mtd_sales:,.2f}")
-    col3.metric("🕒 Today's Sales", f"${today_sales:,.2f}")
 
     # 🔮 7-Day Demand Forecast Per SKU (Separate by Store ID)
     st.subheader("🔮 7-Day Demand Forecast Per SKU")
@@ -96,7 +56,7 @@ if 'df' in st.session_state:
     future_df = pd.DataFrame(future_forecasts)
 
     # Filter the forecast data by selected stores
-    future_df_filtered = future_df[future_df['Store ID'].isin(selected_stores)]
+    future_df_filtered = future_df[future_df['Store ID'].isin(st.session_state.selected_stores)]
 
     # Model input columns expected by the model
     categorical_cols = ['Store ID', 'Product ID', 'Category', 'Region', 'Weather Condition', 'Seasonality']
@@ -105,11 +65,15 @@ if 'df' in st.session_state:
     # Ensure the data passed to the model's preprocessor matches the required format
     input_data = future_df_filtered[categorical_cols + numerical_cols]
 
-    # Apply the preprocessing pipeline to the input data (no manual transformation, directly using pipeline)
-    future_df_transformed = model.named_steps['preprocessor'].transform(input_data)
+    # Encode categorical columns using label encoders
+    for col in categorical_cols:
+        input_data[col] = label_encoders[col].transform(input_data[col])
 
-    # Now, ensure the model uses the correct input data
-    future_df_filtered['Predicted Units Sold'] = model.predict(future_df_transformed).astype(int)
+    # Apply the scaler to numerical columns
+    input_data[numerical_cols] = scaler.transform(input_data[numerical_cols])
+
+    # Make predictions using the model
+    future_df_filtered['Predicted Units Sold'] = rf_model.predict(input_data).astype(int)
 
     # Display the forecast results
     forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
