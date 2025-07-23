@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import pickle
+import joblib
 import datetime
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
@@ -12,8 +12,8 @@ from sklearn.pipeline import Pipeline
 def load_model():
     try:
         # Load model from pickle file
-        with open('best_xgboost_model.pkl', 'rb') as f:
-            model = pickle.load(f)
+        with open('best_xgb_model.pkl', 'rb') as f:
+            model = joblib.load(f)
         return model
     except Exception as e:
         st.error(f"Error loading the model: {str(e)}")
@@ -87,40 +87,33 @@ if 'df' in st.session_state:
     future_df_filtered = future_df[future_df['Store ID'].isin(selected_stores)]
 
     # Model input columns expected by the model
-    model_input_cols = ['Inventory Level', 'Units Ordered', 'Demand Forecast', 'Price', 'Discount']
+    categorical_cols = ['Store ID', 'Product ID', 'Category', 'Region', 'Weather Condition', 'Seasonality']
+    numerical_cols = ['Price', 'Units Ordered', 'Demand Forecast', 'Holiday/Promotion', 'Discount', 'Competitor Pricing', 'Inventory Level', 'Hour', 'Day', 'Month', 'Weekday']
 
-    # Check if all required columns are in the future_df
-    missing_cols = [col for col in model_input_cols if col not in future_df_filtered.columns]
+    # Check if all required columns are present in future_df_filtered
+    missing_cols = [col for col in categorical_cols + numerical_cols if col not in future_df_filtered.columns]
 
     if missing_cols:
         st.warning(f"The following required columns are missing in the data: {missing_cols}")
-        # Optionally, you can fill missing columns with default values (e.g., 0 for numeric columns)
+        # Handle missing columns: For categorical ones, fill with 'Unknown', and for numeric ones, fill with zeros.
         for col in missing_cols:
-            if col in ['Inventory Level', 'Units Ordered']:  # Fill with 0 if necessary
-                future_df_filtered[col] = 0
-            elif col in ['Price', 'Discount']:  # Fill with mean if necessary
-                future_df_filtered[col] = future_df_filtered['Price'].mean() if 'Price' in future_df_filtered.columns else 0
-            elif col == 'Demand Forecast':  # Fill with mean if necessary
-                future_df_filtered[col] = future_df_filtered['Demand Forecast'].mean() if 'Demand Forecast' in future_df_filtered.columns else 0
+            if col in categorical_cols:
+                future_df_filtered[col] = 'Unknown'  # Fill missing categorical columns with 'Unknown'
+            elif col in numerical_cols:
+                future_df_filtered[col] = 0  # Fill missing numeric columns with 0
 
-    # Now ensure the data is transformed using the preprocessor before prediction
-    if all(col in future_df_filtered.columns for col in model_input_cols):
-        if model is not None:
-            # Apply the same transformations (one-hot encoding, scaling, etc.) using the preprocessor in the model pipeline
-            future_df_transformed = model.named_steps['preprocessor'].transform(future_df_filtered[model_input_cols])
-            
-            # Make predictions using the transformed data
-            future_df_filtered['Predicted Units Sold'] = model.predict(future_df_transformed).astype(int)
-            forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
-            st.dataframe(forecast_output)
-        else:
-            st.error("Model could not be loaded. Please check the model file.")
-    else:
-        st.error("Missing necessary columns for prediction.")
+    # Ensure the data passed to the model's preprocessor matches the required format
+    input_data = future_df_filtered[categorical_cols + numerical_cols]
 
-    # Display the raw data at the bottom (file upload section)
-    st.subheader("Raw Data")
-    st.dataframe(df.head())
+    # Apply the preprocessing pipeline to the input data
+    future_df_transformed = model.named_steps['preprocessor'].transform(input_data)
+
+    # Use the model to make predictions with the transformed data
+    future_df_filtered['Predicted Units Sold'] = model.predict(future_df_transformed).astype(int)
+
+    # Display the forecast results
+    forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
+    st.dataframe(forecast_output)
 
 else:
     # File upload section moved to the bottom
