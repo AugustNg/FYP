@@ -114,12 +114,16 @@ if 'df' in st.session_state:
     # Apply the preprocessing pipeline to the input data
     future_df_transformed = model.named_steps['preprocessor'].transform(input_data)
 
-    # Use the model to make predictions with the transformed data
-    future_df_filtered['Predicted Units Sold'] = model.predict(future_df_transformed).astype(int)
+    # Verify that the number of features after transformation is consistent with the model's expectation
+    if future_df_transformed.shape[1] != model.named_steps['preprocessor'].transformers_[1][1].n_features_in_:
+        st.error(f"Feature mismatch: {future_df_transformed.shape[1]} features passed to the model, but the model expects {model.named_steps['preprocessor'].transformers_[1][1].n_features_in_} features.")
+    else:
+        # Use the model to make predictions with the transformed data
+        future_df_filtered['Predicted Units Sold'] = model.predict(future_df_transformed).astype(int)
 
-    # Display the forecast results
-    forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
-    st.dataframe(forecast_output)
+        # Display the forecast results
+        forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
+        st.dataframe(forecast_output)
 
 else:
     # File upload section moved to the bottom
