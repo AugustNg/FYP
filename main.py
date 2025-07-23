@@ -6,6 +6,7 @@ import datetime
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
 
 # Load model
 @st.cache_resource
@@ -114,16 +115,23 @@ if 'df' in st.session_state:
     # Apply the preprocessing pipeline to the input data
     future_df_transformed = model.named_steps['preprocessor'].transform(input_data)
 
-    # Verify that the number of features after transformation is consistent with the model's expectation
-    if future_df_transformed.shape[1] != model.named_steps['preprocessor'].transformers_[1][1].n_features_in_:
-        st.error(f"Feature mismatch: {future_df_transformed.shape[1]} features passed to the model, but the model expects {model.named_steps['preprocessor'].transformers_[1][1].n_features_in_} features.")
-    else:
-        # Use the model to make predictions with the transformed data
-        future_df_filtered['Predicted Units Sold'] = model.predict(future_df_transformed).astype(int)
+    # Fixing Feature Mismatch by aligning OneHotEncoder categories
+    # Get the categories used during training
+    encoder = model.named_steps['preprocessor'].transformers_[0][1]  # OneHotEncoder used for categorical columns
+    encoder_categories = encoder.categories_
 
-        # Display the forecast results
-        forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
-        st.dataframe(forecast_output)
+    # Ensure that future_df_filtered has the same categories for one-hot encoding
+    input_data_transformed = encoder.transform(future_df_filtered[categorical_cols])
+
+    # Combine the transformed categorical and numerical features
+    combined_input = np.hstack([input_data_transformed, StandardScaler().fit_transform(future_df_filtered[numerical_cols])])
+
+    # Now, ensure the model uses the correct input data
+    future_df_filtered['Predicted Units Sold'] = model.predict(combined_input).astype(int)
+
+    # Display the forecast results
+    forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
+    st.dataframe(forecast_output)
 
 else:
     # File upload section moved to the bottom
