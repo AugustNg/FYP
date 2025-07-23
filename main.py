@@ -124,7 +124,7 @@ if 'df' in st.session_state:
     input_data_transformed = encoder.transform(future_df_filtered[categorical_cols])
 
     # Combine the transformed categorical and numerical features
-    combined_input = np.hstack([input_data_transformed, StandardScaler().fit_transform(future_df_filtered[numerical_cols])])
+    combined_input = np.hstack([input_data_transformed.toarray(), StandardScaler().fit_transform(future_df_filtered[numerical_cols])])
 
     # Now, ensure the model uses the correct input data
     future_df_filtered['Predicted Units Sold'] = model.predict(combined_input).astype(int)
