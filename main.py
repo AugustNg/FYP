@@ -12,7 +12,7 @@ from sklearn.pipeline import Pipeline
 def load_model():
     try:
         # Load model from pickle file
-        with open('best_xgb_model.pkl', 'rb') as f:
+        with open('best_xgboost_model.pkl', 'rb') as f:
             model = pickle.load(f)
         return model
     except Exception as e:
@@ -64,7 +64,7 @@ if 'df' in st.session_state:
     col2.metric("📆 Month-to-Date", f"${mtd_sales:,.2f}")
     col3.metric("🕒 Today's Sales", f"${today_sales:,.2f}")
 
-    # 🔮 7-Day Demand Forecast per SKU (Separate by Store ID)
+    # 🔮 7-Day Demand Forecast Per SKU (Separate by Store ID)
     st.subheader("🔮 7-Day Demand Forecast Per SKU")
 
     future_days = 7
