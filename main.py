@@ -36,6 +36,15 @@ if 'df' in st.session_state:
     df['Month'] = df['Date'].dt.month
     df['Weekday'] = df['Date'].dt.weekday
 
+    # Get unique store IDs for user selection
+    store_ids = df['Store ID'].unique()
+
+    # Create a selectbox for store selection
+    selected_stores = st.multiselect("Select stores to forecast:", options=store_ids, default=store_ids)
+
+    # Save selected stores to session state
+    st.session_state.selected_stores = selected_stores
+
     # 🔮 7-Day Demand Forecast Per SKU (Separate by Store ID)
     st.subheader("🔮 7-Day Demand Forecast Per SKU")
 
