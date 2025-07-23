@@ -65,9 +65,11 @@ if 'df' in st.session_state:
     # Ensure the data passed to the model's preprocessor matches the required format
     input_data = future_df_filtered[categorical_cols + numerical_cols]
 
-    # Encode categorical columns using label encoders
+    # Handle unseen categories during prediction (Label Encoding)
     for col in categorical_cols:
-        input_data[col] = label_encoders[col].transform(input_data[col])
+        encoder = label_encoders[col]
+        input_data[col] = input_data[col].apply(lambda x: x if x in encoder.classes_ else 'Unknown')  # Replace unseen labels with 'Unknown'
+        input_data[col] = encoder.transform(input_data[col])
 
     # Apply the scaler to numerical columns
     input_data[numerical_cols] = scaler.transform(input_data[numerical_cols])
