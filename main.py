@@ -35,47 +35,6 @@ if 'df' in st.session_state:
     df['Month'] = df['Date'].dt.month
     df['Weekday'] = df['Date'].dt.weekday
 
-    # 🔹 Historical Sales Line Chart (Separate by Store ID)
-    st.subheader("🔹 Historical Sales")
-    sales_over_time = df.groupby(['Store ID', 'Date'])['sales_amount'].sum().reset_index()
-
-    # Create a list of store IDs for user to select
-    store_ids = sales_over_time['Store ID'].unique()
-
-    # Ensure `selected_stores` is stored in session_state, initialize if not available
-    if 'selected_stores' not in st.session_state:
-        st.session_state.selected_stores = store_ids  # Default to all stores
-
-    # Create a multiselect widget to select stores
-    selected_stores = st.multiselect("Select Stores to view", options=store_ids, default=st.session_state.selected_stores)
-
-    # Store the selected stores in session_state for later use
-    st.session_state.selected_stores = selected_stores
-
-    # Filter data for selected stores
-    filtered_sales = sales_over_time[sales_over_time['Store ID'].isin(selected_stores)]
-    store_sales = filtered_sales.pivot(index='Date', columns='Store ID', values='sales_amount')
-    st.line_chart(store_sales)
-
-    # 🔹 Sales (YTD, MTD, Today's Sales) KPIs (Updated to reflect dataset provided)
-    today = pd.to_datetime(datetime.date.today())
-    latest_year = df['Date'].dt.year.max()
-    latest_month = df['Date'].dt.month.max()
-    latest_day = df['Date'].dt.date.max()
-
-    # Filter sales data for selected stores
-    filtered_df = df[df['Store ID'].isin(selected_stores)]
-
-    # Recalculate the KPIs for selected stores
-    ytd_sales = filtered_df[filtered_df['Date'].dt.year == latest_year]['sales_amount'].sum()
-    mtd_sales = filtered_df[(filtered_df['Date'].dt.year == latest_year) & (filtered_df['Date'].dt.month == latest_month)]['sales_amount'].sum()
-    today_sales = filtered_df[filtered_df['Date'].dt.date == latest_day]['sales_amount'].sum()
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("📅 Year-to-Date", f"${ytd_sales:,.2f}")
-    col2.metric("📆 Month-to-Date", f"${mtd_sales:,.2f}")
-    col3.metric("🕒 Today's Sales", f"${today_sales:,.2f}")
-
     # 🔮 7-Day Demand Forecast Per SKU (Separate by Store ID)
     st.subheader("🔮 7-Day Demand Forecast Per SKU")
 
@@ -96,7 +55,7 @@ if 'df' in st.session_state:
     future_df = pd.DataFrame(future_forecasts)
 
     # Filter the forecast data by selected stores
-    future_df_filtered = future_df[future_df['Store ID'].isin(selected_stores)]
+    future_df_filtered = future_df[future_df['Store ID'].isin(st.session_state.selected_stores)]
 
     # Model input columns expected by the model
     categorical_cols = ['Store ID', 'Product ID', 'Category', 'Region', 'Weather Condition', 'Seasonality']
