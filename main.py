@@ -115,19 +115,8 @@ if 'df' in st.session_state:
     # Apply the preprocessing pipeline to the input data
     future_df_transformed = model.named_steps['preprocessor'].transform(input_data)
 
-    # Fixing Feature Mismatch by aligning OneHotEncoder categories
-    # Get the categories used during training
-    encoder = model.named_steps['preprocessor'].transformers_[0][1]  # OneHotEncoder used for categorical columns
-    encoder_categories = encoder.categories_
-
-    # Ensure that future_df_filtered has the same categories for one-hot encoding
-    input_data_transformed = encoder.transform(future_df_filtered[categorical_cols])
-
-    # Combine the transformed categorical and numerical features
-    combined_input = np.hstack([input_data_transformed.toarray(), StandardScaler().fit_transform(future_df_filtered[numerical_cols])])
-
     # Now, ensure the model uses the correct input data
-    future_df_filtered['Predicted Units Sold'] = model.predict(combined_input).astype(int)
+    future_df_filtered['Predicted Units Sold'] = model.predict(future_df_transformed).astype(int)
 
     # Display the forecast results
     forecast_output = future_df_filtered[['Product ID', 'Store ID', 'Date', 'Predicted Units Sold']].sort_values(['Product ID', 'Store ID', 'Date'])
