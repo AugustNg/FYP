@@ -3,10 +3,6 @@ import pandas as pd
 import numpy as np
 import joblib
 import datetime
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
 
 # Load model
 @st.cache_resource
@@ -39,38 +35,6 @@ if 'df' in st.session_state:
     df['Month'] = df['Date'].dt.month
     df['Weekday'] = df['Date'].dt.weekday
 
-    # 🔹 Historical Sales Line Chart (Separate by Store ID)
-    st.subheader("🔹 Historical Sales")
-    sales_over_time = df.groupby(['Store ID', 'Date'])['sales_amount'].sum().reset_index()
-
-    # Create a list of store IDs for user to select
-    store_ids = sales_over_time['Store ID'].unique()
-    selected_stores = st.multiselect("Select Stores to view", options=store_ids, default=store_ids)
-
-    # Filter data for selected stores
-    filtered_sales = sales_over_time[sales_over_time['Store ID'].isin(selected_stores)]
-    store_sales = filtered_sales.pivot(index='Date', columns='Store ID', values='sales_amount')
-    st.line_chart(store_sales)
-
-    # 🔹 Sales (YTD, MTD, Today's Sales) KPIs (Updated to reflect dataset provided)
-    today = pd.to_datetime(datetime.date.today())
-    latest_year = df['Date'].dt.year.max()
-    latest_month = df['Date'].dt.month.max()
-    latest_day = df['Date'].dt.date.max()
-
-    # Filter sales data for selected stores
-    filtered_df = df[df['Store ID'].isin(selected_stores)]
-
-    # Recalculate the KPIs for selected stores
-    ytd_sales = filtered_df[filtered_df['Date'].dt.year == latest_year]['sales_amount'].sum()
-    mtd_sales = filtered_df[(filtered_df['Date'].dt.year == latest_year) & (filtered_df['Date'].dt.month == latest_month)]['sales_amount'].sum()
-    today_sales = filtered_df[filtered_df['Date'].dt.date == latest_day]['sales_amount'].sum()
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("📅 Year-to-Date", f"${ytd_sales:,.2f}")
-    col2.metric("📆 Month-to-Date", f"${mtd_sales:,.2f}")
-    col3.metric("🕒 Today's Sales", f"${today_sales:,.2f}")
-
     # 🔮 7-Day Demand Forecast Per SKU (Separate by Store ID)
     st.subheader("🔮 7-Day Demand Forecast Per SKU")
 
@@ -91,28 +55,16 @@ if 'df' in st.session_state:
     future_df = pd.DataFrame(future_forecasts)
 
     # Filter the forecast data by selected stores
-    future_df_filtered = future_df[future_df['Store ID'].isin(selected_stores)]
+    future_df_filtered = future_df[future_df['Store ID'].isin(st.session_state.selected_stores)]
 
     # Model input columns expected by the model
     categorical_cols = ['Store ID', 'Product ID', 'Category', 'Region', 'Weather Condition', 'Seasonality']
     numerical_cols = ['Price', 'Units Ordered', 'Demand Forecast', 'Holiday/Promotion', 'Discount', 'Competitor Pricing', 'Inventory Level', 'Hour', 'Day', 'Month', 'Weekday']
 
-    # Check if all required columns are present in future_df_filtered
-    missing_cols = [col for col in categorical_cols + numerical_cols if col not in future_df_filtered.columns]
-
-    if missing_cols:
-        st.warning(f"The following required columns are missing in the data: {missing_cols}")
-        # Handle missing columns: For categorical ones, fill with 'Unknown', and for numeric ones, fill with zeros.
-        for col in missing_cols:
-            if col in categorical_cols:
-                future_df_filtered[col] = 'Unknown'  # Fill missing categorical columns with 'Unknown'
-            elif col in numerical_cols:
-                future_df_filtered[col] = 0  # Fill missing numeric columns with 0
-
     # Ensure the data passed to the model's preprocessor matches the required format
     input_data = future_df_filtered[categorical_cols + numerical_cols]
 
-    # Apply the preprocessing pipeline to the input data (no manual transformation, directly using pipeline)
+    # Apply the preprocessing pipeline to the input data
     future_df_transformed = model.named_steps['preprocessor'].transform(input_data)
 
     # Now, ensure the model uses the correct input data
