@@ -112,7 +112,7 @@ if 'df' in st.session_state:
     # Ensure the data passed to the model's preprocessor matches the required format
     input_data = future_df_filtered[categorical_cols + numerical_cols]
 
-    # Apply the preprocessing pipeline to the input data
+    # Apply the preprocessing pipeline to the input data (no manual transformation, directly using pipeline)
     future_df_transformed = model.named_steps['preprocessor'].transform(input_data)
 
     # Now, ensure the model uses the correct input data
