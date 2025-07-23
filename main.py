@@ -32,6 +32,12 @@ if 'df' in st.session_state:
     # Ensure the 'sales_amount' column is created before any grouping or operations
     df['sales_amount'] = df['Units Sold'] * df['Price']
 
+    # Create temporal features from the 'Date' column
+    df['Hour'] = df['Date'].dt.hour
+    df['Day'] = df['Date'].dt.day
+    df['Month'] = df['Date'].dt.month
+    df['Weekday'] = df['Date'].dt.weekday
+
     # 🔹 Historical Sales Line Chart (Separate by Store ID)
     st.subheader("🔹 Historical Sales")
     sales_over_time = df.groupby(['Store ID', 'Date'])['sales_amount'].sum().reset_index()
@@ -127,6 +133,12 @@ else:
         df['Units Sold'] = pd.to_numeric(df['Units Sold'], errors='coerce')
         df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
         df.dropna(subset=['Units Sold', 'Price'], inplace=True)
+
+        # Create temporal features from the 'Date' column
+        df['Hour'] = df['Date'].dt.hour
+        df['Day'] = df['Date'].dt.day
+        df['Month'] = df['Date'].dt.month
+        df['Weekday'] = df['Date'].dt.weekday
 
         # Save the dataframe to session state for later use
         st.session_state.df = df
